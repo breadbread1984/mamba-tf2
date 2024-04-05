@@ -18,7 +18,7 @@ class RMSNorm(tf.keras.layers.Layer):
     results = results * self.weight
     return results
   def get_config(self):
-    config = super(MRSNorm, self).get_config()
+    config = super(RMSNorm, self).get_config()
     config['eps'] = self.eps
     return config
   @classmethod
@@ -103,4 +103,5 @@ if __name__ == "__main__":
   block = ResidualBlock(256)
   inputs = np.random.normal(size = (4, 10, 256))
   outputs = block(inputs)
+  block.save('block.h5')
   print(outputs.shape)
