@@ -111,7 +111,7 @@ def Mamba(vocab_size, d_model, n_layer, expand = 2, bias = False, d_conv = 4, co
 
 if __name__ == "__main__":
   mamba = Mamba(vocab_size = 1000, d_model = 256, n_layer = 12)
-  inputs = np.random.randint(low = 0, high = 1000, size = (4, 200))
+  inputs = np.random.randint(low = 0, high = 1000, size = (4, 200)).astype(np.int32)
   outputs = mamba(inputs)
   mamba.save('mamba.keras')
   print(outputs.shape)
