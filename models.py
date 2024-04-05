@@ -103,5 +103,5 @@ if __name__ == "__main__":
   block = ResidualBlock(256)
   inputs = np.random.normal(size = (4, 10, 256))
   outputs = block(inputs)
-  block.save('block.h5')
+  block.save('block.keras')
   print(outputs.shape)
