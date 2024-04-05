@@ -37,7 +37,7 @@ class SSM(tf.keras.layers.Layer):
     self.dt_proj_weight = self.add_weight(shape = (self.dt_rank, self.expand * self.d_model), dtype = tf.float32, trainable = True, name = 'dt_proj_wei9ght')
     self.dt_proj_bias = self.add_weight(shape = (self.expand * self.d_model), dtype = tf.float32, trainable = True, name = 'dt_proj_bias')
     self.A_log = self.add_weight(shape = (self.expand * self.d_model, self.d_state), dtype = tf.float32, trainable = True, name = 'A_log')
-    self.A_log.assign(tf.tile(tf.expand_dims(tf.range(1, self.d_state + 1), axis = 0), (self.expand * self.d_model, 1)))
+    self.A_log.assign(tf.math.log(tf.tile(tf.expand_dims(tf.range(1, self.d_state + 1), axis = 0), (self.expand * self.d_model, 1))))
     self.D = self.add_weight(shape = (self.expand * self.d_model), dtype = tf.float32, trainable = True, initializer = tf.keras.initializers.Constant(1.), name = 'D')
   def call(self, x):
     # x.shape = (batch, seq_len, d_model * expand)
