@@ -82,14 +82,14 @@ class SSM(tf.keras.layers.Layer):
     return cls(**config)
 
 def MambaBlock(d_model, seq_len, expand = 2, bias = False, d_conv = 4, conv_bias = True, d_state = 16):
-  inputs = tf.keras.Input((None, d_model)) # inputs.shape = (batch, seq_len, d_model)
+  inputs = tf.keras.Input((seq_len, d_model)) # inputs.shape = (batch, seq_len, d_model)
   x_and_res = tf.keras.layers.Dense(2 * expand * d_model, use_bias = bias)(inputs) # results.shape = (batch, seq_len, 2 * expand * d_model)
   x, res = tf.keras.layers.Lambda(lambda x: tf.split(x, 2, axis = -1))(x_and_res) # x.shape = (batch, seq_len, expand * d_model)
   # channel mixing
   x = tf.keras.layers.Conv1D(expand * d_model, kernel_size = (d_conv,), padding = 'same', use_bias = conv_bias, groups = expand * d_model, activation = tf.keras.activations.silu)(x) # x.shape = (batch, seq_len, expand * d_model)
   # spatial mixing
   y = SSM(d_model, seq_len, expand, d_state, bias)(x) # y.shape = (batch, seq_len, d_model * expand)
-  y = y * tf.nn.silu(res)
+  y = tf.keras.layers.Lambda(lambda x: x[0] * tf.nn.silu(x[1]))([y, res])
   outputs = tf.keras.layers.Dense(d_model, use_bias = bias)(y)
   return tf.keras.Model(inputs = inputs, outputs = outputs)
 
