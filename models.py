@@ -99,9 +99,19 @@ def ResidualBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = Tru
   results = tf.keras.layers.Add()([results, inputs])
   return tf.keras.Model(inputs = inputs, outputs = results)
 
+def Mamba(vocab_size, d_model, n_layer, expand = 2, bias = False, d_conv = 4, conv_bias = True, d_state = 16):
+  inputs = tf.keras.Input((None,), dtype = tf.int32)
+  embed = tf.keras.layers.Embedding(vocab_size, d_model)
+  results = embed(inputs)
+  for i in range(n_layer):
+    results = ResidualBlock(d_model, expand, bias, d_conv, conv_bias, d_state)(results)
+  results = RMSNorm()(results)
+  results = tf.keras.layers.Lambda(lambda x: tf.linalg.matmul(x[0], x[1], transpose_b = True))([results, embed.weight])
+  return tf.keras.Model(inputs = inputs, outputs = results)
+
 if __name__ == "__main__":
-  block = ResidualBlock(256)
-  inputs = np.random.normal(size = (4, 10, 256))
-  outputs = block(inputs)
-  block.save('block.keras')
+  mamba = Mamba(vocab_size = 1000, d_model = 256, n_layer = 12)
+  inputs = np.random.randint(low = 0, high = 1000, size = (4, 200))
+  outputs = mamba(inputs)
+  mamba.save('mamba.keras')
   print(outputs.shape)
