@@ -40,6 +40,8 @@ class SSM(tf.keras.layers.Layer):
     self.A_log = self.add_weight(shape = (self.expand * self.d_model, self.d_state), dtype = tf.float32, trainable = True, name = 'A_log')
     self.A_log.assign(tf.math.log(tf.tile(tf.expand_dims(tf.range(1, self.d_state + 1, dtype = tf.float32), axis = 0), (self.expand * self.d_model, 1))))
     self.D = self.add_weight(shape = (self.expand * self.d_model,), dtype = tf.float32, trainable = True, initializer = tf.keras.initializers.Constant(1.), name = 'D')
+  def compute_output_shape(self, input_shape):
+    return (input_shape[0], input_shape[1], self.d_model * self.expand)
   def call(self, x):
     # x.shape = (batch, seq_len, d_model * expand)
     x_dbl = tf.linalg.matmul(x, self.x_proj_weight) # x_dbl.shape = (batch, seq_len, dt_rank + 2 * d_state)
@@ -56,11 +58,11 @@ class SSM(tf.keras.layers.Layer):
     A = -tf.exp(self.A_log) # A.shape = (expand * d_model, d_state)
     D = self.D # D.shape = (expand * d_model)
     deltaA = tf.math.exp(tf.expand_dims(delta, axis = -1) * tf.reshape(A, (1, 1, self.expand * self.d_model, self.d_state))) # deltaA.shape = (batch, seq_len, expand * d_model, d_state)
-    deltaB_u = tf.expand_dims(delta, axis = -1) * tf.expand_dims(B, axis = -2) * tf.expand_dims(x, axis = -1) # deltaB_u.shape = (batch, seq_len, expand * d_model, d_state)
+    deltaB_x = tf.expand_dims(delta, axis = -1) * tf.expand_dims(B, axis = -2) * tf.expand_dims(x, axis = -1) # deltaB_x.shape = (batch, seq_len, expand * d_model, d_state)
     state = tf.zeros((tf.shape(x)[0], self.expand * self.d_model, self.d_state)) # state.shape = (batch, expand * d_model, d_state)
     ys = list()
-    for i in range(tf.shape(x)[1]): # loop over seq_len
-      state = deltaA[:, i] * state + deltaB_u[:, i] # state.shape = (batch, expand * d_model, d_state)
+    for i in tf.range(tf.shape(x)[1]): # loop over seq_len
+      state = deltaA[:, i] * state + deltaB_x[:, i] # state.shape = (batch, expand * d_model, d_state)
       y = tf.math.reduce_sum(state * tf.expand_dims(C[:, i], axis = 1), axis = -1) # y.shape = (batch, expand * d_model)
       ys.append(y)
     y = tf.stack(ys, axis = 1) # y.shape = (batch, seq_len, expand * d_model)
