@@ -10,9 +10,11 @@ class RMSNorm(tf.keras.layers.Layer):
     self.eps = eps
   def build(self, input_shape):
     self.weight = self.add_weight(shape = (input_shape[-1],), dtype = tf.float32, trainable = True, initializer = tf.keras.initializers.Constant(1.), name = 'weight')
+  def compute_output_shape(self, input_shape):
+    return input_shape
   def call(self, inputs):
     stddev = tf.math.maximum(tf.math.sqrt(tf.math.reduce_mean(inputs ** 2, axis = -1, keepdims = True)), self.eps)
-    results = results / stddev
+    results = inputs / stddev
     results = results * self.weight
     return results
   def get_config(self):
@@ -53,8 +55,8 @@ class SSM(tf.keras.layers.Layer):
     # C.shape = (batch, seq_len, d_state)
     delta = tf.math.softplus(tf.linalg.matmul(delta, self.dt_proj_weight) + self.dt_proj_bias) # delta.shape = (batch, seq_len, expand * d_model)
     # selective scan
-    # state(t+1) = A state(t) + B x(t)
-    # y(t)   = C state(t) + D x(t)
+    # state(t+1) = A state(t) + B x(t) # B is input gate
+    # y(t)   = C state(t) + D x(t) # C is output gate
     A = -tf.exp(self.A_log) # A.shape = (expand * d_model, d_state)
     deltaA = tf.math.exp(tf.expand_dims(delta, axis = -1) * tf.reshape(A, (1, 1, self.expand * self.d_model, self.d_state))) # deltaA.shape = (batch, seq_len, expand * d_model, d_state)
     deltaB_x = tf.expand_dims(delta, axis = -1) * tf.expand_dims(B, axis = -2) * tf.expand_dims(x, axis = -1) # deltaB_x.shape = (batch, seq_len, expand * d_model, d_state)
@@ -90,8 +92,15 @@ def MambaBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = True, 
   outputs = tf.keras.layers.Dense(d_model, use_bias = bias)(y)
   return tf.keras.Model(inputs = inputs, outputs = outputs)
 
+def ResidualBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = True, d_state = 16):
+  inputs = tf.keras.Input((None, d_model)) # inputs.shape = (batch, seq_len, d_model)
+  results = RMSNorm()(inputs)
+  results = MambaBlock(d_model, expand, bias, d_conv, conv_bias, d_state)(results)
+  results = tf.keras.layers.Add()([results, inputs])
+  return tf.keras.Model(inputs = inputs, outputs = results)
+
 if __name__ == "__main__":
-  block = MambaBlock(256)
+  block = ResidualBlock(256)
   inputs = np.random.normal(size = (4, 10, 256))
   outputs = block(inputs)
   print(outputs.shape)
