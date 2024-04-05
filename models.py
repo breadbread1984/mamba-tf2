@@ -56,7 +56,6 @@ class SSM(tf.keras.layers.Layer):
     # state(t+1) = A state(t) + B x(t)
     # y(t)   = C state(t) + D x(t)
     A = -tf.exp(self.A_log) # A.shape = (expand * d_model, d_state)
-    D = self.D # D.shape = (expand * d_model)
     deltaA = tf.math.exp(tf.expand_dims(delta, axis = -1) * tf.reshape(A, (1, 1, self.expand * self.d_model, self.d_state))) # deltaA.shape = (batch, seq_len, expand * d_model, d_state)
     deltaB_x = tf.expand_dims(delta, axis = -1) * tf.expand_dims(B, axis = -2) * tf.expand_dims(x, axis = -1) # deltaB_x.shape = (batch, seq_len, expand * d_model, d_state)
     state = tf.zeros((tf.shape(x)[0], self.expand * self.d_model, self.d_state)) # state.shape = (batch, expand * d_model, d_state)
@@ -66,7 +65,7 @@ class SSM(tf.keras.layers.Layer):
       y = tf.math.reduce_sum(state * tf.expand_dims(C[:, i], axis = 1), axis = -1) # y.shape = (batch, expand * d_model)
       ys.append(y)
     y = tf.stack(ys, axis = 1) # y.shape = (batch, seq_len, expand * d_model)
-    y = y + x * D # y.shape = (batch, seq_len, d_model * expand)
+    y = y + x * self.D # y.shape = (batch, seq_len, d_model * expand)
     return y
   def get_config(self):
     config = super(SSM, self).get_config()
