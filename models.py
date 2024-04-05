@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
-import numyp as np
+from math import ceil
+import numpy as np
 import tensorflow as tf
 
 class RMSNorm(tf.keras.layers.Layer):
@@ -29,13 +30,13 @@ class SSM(tf.keras.layers.Layer):
     self.expand = expand
     self.d_state = d_state
     self.bias = bias
-    self.dt_rank = tf.math.ceil(self.d_model / 16)
+    self.dt_rank = ceil(self.d_model / 16)
   def build(self, input_shape):
     self.x_proj_weight = self.add_weight(shape = (self.d_model * self.expand, self.dt_rank + 2 * self.d_state), dtype = tf.float32, trainable = True, name = 'x_proj_weight')
     if self.bias:
       self.x_proj_bias = self.add_weight(shape = (self.dt_rank + 2 * self.d_state), dtype = tf.float32, trainable = True, name = 'x_proj_bias')
     self.dt_proj_weight = self.add_weight(shape = (self.dt_rank, self.expand * self.d_model), dtype = tf.float32, trainable = True, name = 'dt_proj_wei9ght')
-    self.dt_proj_bias = self.add_weight(shape = (self.expand * self.d_model), dtype = tf.float32, trainable = True, name = 'dt_proj_bias')
+    self.dt_proj_bias = self.add_weight(shape = (self.expand * self.d_model,), dtype = tf.float32, trainable = True, name = 'dt_proj_bias')
     self.A_log = self.add_weight(shape = (self.expand * self.d_model, self.d_state), dtype = tf.float32, trainable = True, name = 'A_log')
     self.A_log.assign(tf.math.log(tf.tile(tf.expand_dims(tf.range(1, self.d_state + 1), axis = 0), (self.expand * self.d_model, 1))))
     self.D = self.add_weight(shape = (self.expand * self.d_model), dtype = tf.float32, trainable = True, initializer = tf.keras.initializers.Constant(1.), name = 'D')
@@ -76,11 +77,20 @@ class SSM(tf.keras.layers.Layer):
   def from_config(cls, config):
     return cls(**config)
 
-def MambaBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = True):
+def MambaBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = True, d_state = 16):
   inputs = tf.keras.Input((None, d_model)) # inputs.shape = (batch, seq_len, d_model)
   x_and_res = tf.keras.layers.Dense(2 * expand * d_model, use_bias = bias)(inputs) # results.shape = (batch, seq_len, 2 * expand * d_model)
   x, res = tf.keras.layers.Lambda(lambda x: tf.split(x, 2, axis = -1))(x_and_res) # x.shape = (batch, seq_len, expand * d_model)
   # channel mixing
   x = tf.keras.layers.Conv1D(expand * d_model, kernel_size = (d_conv,), padding = 'same', use_bias = conv_bias, groups = expand * d_model, activation = tf.keras.activations.silu)(x) # x.shape = (batch, seq_len, expand * d_model)
   # spatial mixing
-  
+  y = SSM(d_model, expand, d_state, bias)(x) # y.shape = (batch, seq_len, d_model * expand)
+  y = y * tf.nn.silu(res)
+  outputs = tf.keras.layers.Dense(d_model, use_bias = bias)(y)
+  return tf.keras.Model(inputs = inputs, outputs = outputs)
+
+if __name__ == "__main__":
+  block = MambaBlock(256)
+  inputs = np.random.normal(size = (4, 10, 256))
+  outputs = block(inputs)
+  print(outputs.shape)
