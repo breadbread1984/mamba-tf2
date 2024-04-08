@@ -84,10 +84,12 @@ def MambaBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = True, 
   inputs = tf.keras.Input((None, d_model)) # inputs.shape = (batch, seq_len, d_model)
   x_and_res = tf.keras.layers.Dense(2 * expand * d_model, use_bias = bias)(inputs) # results.shape = (batch, seq_len, 2 * expand * d_model)
   x, res = tf.keras.layers.Lambda(lambda x: tf.split(x, 2, axis = -1))(x_and_res) # x.shape = (batch, seq_len, expand * d_model)
-  # channel mixing
+  # spatial & channel mixing
   x = tf.keras.layers.Conv1D(expand * d_model, kernel_size = (d_conv,), padding = 'same', use_bias = conv_bias, groups = expand * d_model, activation = tf.keras.activations.silu)(x) # x.shape = (batch, seq_len, expand * d_model)
-  # spatial mixing
+  # selective state space model
   y = SSM(d_model, expand, d_state, bias)(x) # y.shape = (batch, seq_len, d_model * expand)
+  # NOTE: borrowing idea of Swish gated linear unit (SwiGLU)
+  # this layer gates ssm results with swish layer as well. it can be called as swish gated selective state space model (SwiSSM)
   y = tf.keras.layers.Lambda(lambda x: x[0] * tf.nn.silu(x[1]))([y, res])
   outputs = tf.keras.layers.Dense(d_model, use_bias = bias)(y)
   return tf.keras.Model(inputs = inputs, outputs = outputs)
