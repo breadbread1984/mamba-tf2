@@ -101,8 +101,7 @@ def ResidualBlock(d_model, expand = 2, bias = False, d_conv = 4, conv_bias = Tru
 
 def Mamba(vocab_size, d_model, n_layer, expand = 2, bias = False, d_conv = 4, conv_bias = True, d_state = 16):
   inputs = tf.keras.Input((None,), dtype = tf.int32)
-  embed = tf.keras.layers.Embedding(vocab_size, d_model)
-  results = embed(inputs)
+  results = tf.keras.layers.Embedding(vocab_size, d_model)(inputs)
   for i in range(n_layer):
     results = ResidualBlock(d_model, expand, bias, d_conv, conv_bias, d_state)(results)
   results = RMSNorm()(results)
