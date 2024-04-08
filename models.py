@@ -106,7 +106,7 @@ def Mamba(vocab_size, d_model, n_layer, expand = 2, bias = False, d_conv = 4, co
   for i in range(n_layer):
     results = ResidualBlock(d_model, expand, bias, d_conv, conv_bias, d_state)(results)
   results = RMSNorm()(results)
-  results = tf.keras.layers.Lambda(lambda x: tf.linalg.matmul(x[0], x[1], transpose_b = True))([results, embed.weights])
+  results = tf.keras.layers.Lambda(lambda x: tf.linalg.matmul(a = x[0], b = x[1], transpose_b = True))([results, embed.get_weights()])
   return tf.keras.Model(inputs = inputs, outputs = results)
 
 if __name__ == "__main__":
